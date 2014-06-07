@@ -57,6 +57,31 @@ TF2.TF2Client.prototype.deleteItem = function(item) {
 	this._client.toGC(this._appid, TF2.EGCItemMsg.k_EMsgGCDelete, buffer);
 };
 
+TF2.TF2Client.prototype.nameItem = function(tool, target, name) {
+	if (!this._gcReady) {
+		if (this.debug) util.log("GC not ready, please listen for the 'ready' event.");
+		return null;
+	}
+	var buffer = new Buffer(16 + name.length + 1);
+	buffer.writeUInt64LE(tool);
+	buffer.writeUInt64LE(target, 8);
+	buffer.write(name, 16);
+	this._client.toGC(this._appid, TF2.EGCItemMsg.k_EMsgGCNameItem, buffer);
+};
+
+TF2.TF2Client.prototype.nameBaseItem = function(item, defindex, name) {
+	// item is the id of the tag tha will be consumed
+	if (!this._gcReady) {
+		if (this.debug) util.log("GC not ready, please listen for the 'ready' event.");
+		return null;
+	}
+	var buffer = new Buffer(12 + name.length + 1);
+	buffer.writeUInt64LE(item);
+	buffer.writeUInt32LE(defindex, 8);
+	buffer.write(name, 12);
+	this._client.toGC(this._appid, TF2.EGCItemMsg.k_EMsgGCNameBaseItem, buffer);
+};
+
 TF2.TF2Client.prototype.useItem = function(item) {
 	if (!this._gcReady) {
 		if (this.debug) util.log("GC not ready, please listen for the 'ready' event.");
@@ -186,7 +211,7 @@ handlers[TF2.ESOMsg.k_ESOMsg_CacheSubscriptionCheck] = function onCacheSubscript
 	if (this.debug) util.log("Received cache subscription check");
 	this.cacheSubscriptionRefresh();
 	if (callback) callback();
-}
+};
 
 handlers[TF2.ESOMsg.k_ESOMsg_CacheSubscribed] = function onCacheSubscribed(message, callback) {
 	cacheInfo = gcsdk_gcmessages.CMsgSOCacheSubscribed.parse(message);
@@ -197,24 +222,30 @@ handlers[TF2.ESOMsg.k_ESOMsg_CacheSubscribed] = function onCacheSubscribed(messa
 	if (this.debug) util.log("Received inventory cache");
 	if (callback) callback(items);
 	this.emit('itemsCache', items);
-}
+};
 
 handlers[TF2.EGCItemMsg.k_EMsgGCUpdateItemSchema] = function onUpdateItemSchema(message, callback) {
 	schemaData = base_gcmessages.CMsgUpdateItemSchema.parse(message);
 	if (this.debug) util.log("Received new item schema");
 	if (callback) callback(schemaData);
 	this.emit('schema', schemaData);
-}
+};
 
 handlers[TF2.EGCItemMsg.k_EMsgGCCraftResponse] = function onCraftResponse(message, callback) {
 	// ???
 	if (this.debug) util.log("Received craft response");
 	if (callback) callback();
-}
+};
+
+handlers[TF2.EGCItemMsg.k_EMsgGCNameBaseItemResponse] = function onNameBaseItemResponse(message, callback) {
+	// ???
+	if (this.debug) util.log("Received name base item response");
+	if (callback) callback();
+};
 
 handlers[TF2.EGCItemMsg.k_EMsgGCBackpackSortFinished] = function onBackpackSortFinished(message, callback) {
 	// ???
 	if (this.debug) util.log("Backpack has been sorted");
 	if (callback) callback();
 	this.emit('backpackSorted');
-}
+};

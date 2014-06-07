@@ -15,6 +15,7 @@ var TF2Client = function TF2Client(steamClient, debug) {
 	this._client = steamClient;
 	this._appid = 440;
 	this._gcReady = false;
+	this._gcClientHelloIntervalId = null;
 
 	var self = this;
 	this._client.on("fromGC", function fromGC(app, type, message, callback) {
@@ -37,6 +38,14 @@ var TF2Client = function TF2Client(steamClient, debug) {
 		}
 	});
 
+	this._sendClientHello = function() {
+		if (self.debug) util.log("Sending ClientHello");
+		if (!self._client) {
+			util.log("Where the fuck is _client?");
+		} else {
+			self._client.toGC(self._appid, (TF2.EGCBaseClientMsg.k_EMsgGCClientHello | protoMask), base_gcmessages.CMsgClientHello.serialize({}));
+		}
+	};
 };
 util.inherits(TF2Client, EventEmitter);
 
@@ -47,16 +56,15 @@ require("./generated/messages");
 TF2Client.prototype.launch = function() {
 	if (this.debug) util.log("Launching TF2");
 	this._client.gamesPlayed([this._appid]);
-	payload = gcsdk_gcmessages.CMsgSOCacheSubscriptionRefresh.serialize({
-		"owner": this._client.steamID,
-	});
-	this._client.toGC(this._appid, TF2.ESOMsg.k_ESOMsg_CacheSubscriptionRefresh | protoMask, payload);
-	this._gcReady = true;
-	this.emit("ready");
+	this._gcClientHelloIntervalId = setInterval(this._sendClientHello, 2500);
 };
 
 TF2Client.prototype.exit = function() {
 	if (this.debug) util.log("Exiting TF2");
+	if (this._gcClientHelloIntervalId) {
+		clearInterval(this._gcClientHelloIntervalId);
+		this._gcClientHelloIntervalId = null;
+	}
 	this._gcReady = false;
 	this._client.gamesPlayed([]);
 };
@@ -66,10 +74,13 @@ TF2Client.prototype.exit = function() {
 
 var handlers = TF2Client.prototype._handlers = {};
 
-handlers[TF2.EGCBaseClientMsg.k_EMsgGCClientWelcome] = function clientWelcomeHandler() {
+handlers[TF2.EGCBaseClientMsg.k_EMsgGCClientWelcome] = function clientWelcomeHandler(message) {
+	console.log(base_gcmessages.CMsgClientWelcome.parse(message));
+	clearInterval(this._gcClientHelloIntervalId);
+	this._gcClientHelloIntervalId = null;
 	if (this.debug) util.log("Received client welcome.");
 	this._gcReady = true;
-	// this.emit("ready");
+	this.emit("ready");
 };
 
 TF2.TF2Client = TF2Client;
